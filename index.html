@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SettleStart</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <h1>An opening-placement analysis tool for Catan-like board games</h1>
+
+    <p class="hint">
+    Left-click a hex/token to change terrain/number. Right-click to go backwards.
+    </p>
+
+
+    <div class="board-wrap">
+      <svg id="board" aria-label="board"></svg>
+    </div>
+
+    <div class="controls">
+      <button id="calculate">Calculate</button>
+      <button id="reset">Reset</button>
+
+    <div class="toggle-row" id="pips-ui">
+      <label class="toggle">
+        <input type="checkbox" id="toggle-pips" />
+        <span>Show pips</span>
+      </label>
+
+      <button
+        type="button"
+        class="info-btn"
+        id="pips-info"
+        aria-label="What are pips?"
+      >
+        i
+      </button>
+
+      <div class="tooltip" id="pips-tooltip" role="tooltip">
+        <div class="tooltip-title">What are pips?</div>
+        <div class="tooltip-body">
+          Pips are the number of dice combinations to make a resource number.
+        </div>
+      </div>
+    </div>
+
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <footer>
+    <p>
+      SettleStart is an unofficial, fan-made analysis tool.
+      It is not affiliated with, endorsed by, or associated with the publishers of <em>Catan</em>.
+    </p>
+    <p>
+      All trademarks and registered trademarks are the property of their respective owners.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

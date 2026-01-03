@@ -1,0 +1,441 @@
+:root {
+  --bg: #fafafa;
+  --card: #ffffff;
+  --border: #e5e5e5;
+  --text: #111;
+  --muted: #444;
+
+  --sea: #cfefff;
+
+  /* wood tones */
+  --wood-soft: #f6f1eb;    /* page */
+  --wood-board: #e9dfd3;   /* board surround (stronger) */
+}
+
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+
+  background:
+    linear-gradient(
+      180deg,
+      #f6f1eb 0%,
+      #f3ede6 50%,
+      #f6f1eb 100%
+    );
+
+  color: var(--text);
+}
+
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 28px 16px;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+h4 {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.4;
+  margin-top: 10px;
+}
+
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+  max-width: 860px;
+  line-height: 1.35;
+}
+
+footer {
+  margin-top: 24px;
+  font-size: 0.8rem;
+  color: #555;
+  text-align: center;
+  line-height: 1.4;
+}
+
+
+.board-wrap {
+  background: var(--wood-board);   /* stronger wood */
+  border: 1px solid #d6cabb;
+  border-radius: 18px;
+  padding: 14px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  /* subtle depth */
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+
+#board {
+  display: block;
+  background: var(--sea);       /* sea color */
+  border-radius: 12px;          /* soften the sea edges */
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button#reset {
+  background: #fff;
+  color: #111;
+  border: 1px solid #bbb;
+  font-weight: 600;
+}
+
+.hex {
+  stroke: #333;
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.token {
+  cursor: pointer;
+}
+
+.token-circle {
+  fill: #f5f5f5;
+  stroke: #111;
+  stroke-width: 1.5;
+}
+
+.token-text {
+  font-size: 16px;
+  font-weight: 800;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dice-btn {
+  cursor: pointer;
+}
+
+.dice-btn:hover .dice-face {
+  filter: brightness(0.98);
+}
+
+.dice-label {
+  font-size: 12px;
+  opacity: 0.85;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Results area: clear "output" panel */
+#results {
+  width: min(1100px, 95vw);
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* Grid that prefers fewer, larger cards */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 16px;
+  margin-top: 10px;
+}
+
+/* Bigger result cards */
+.result-card {
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 18px;
+  padding: 14px;
+  overflow: visible;
+}
+
+/* Bigger mini-map */
+.result-map {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 16px;
+}
+
+
+/* Pips toggle UI (placed to the right of Reset) */
+.controls {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 18px; /* pushes it a bit to the right of Reset */
+  position: relative;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.14);
+  background: rgba(255,255,255,0.65);
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.info-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.75);
+  color: #111;
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-btn:hover,
+.info-btn:focus {
+  background: rgba(255,255,255,0.92);
+  outline: none;
+}
+
+.tooltip {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: min(380px, 85vw);
+  background: rgba(17,17,17,0.92);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  display: none;
+  z-index: 20;
+}
+
+.tooltip-title {
+  font-weight: 900;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.tooltip-body {
+  font-size: 12.5px;
+  line-height: 1.35;
+  opacity: 0.95;
+}
+
+/* CSS hover/focus fallback (works even if JS fails) */
+.info-btn:hover + .tooltip,
+.info-btn:focus + .tooltip {
+  display: block;
+}
+
+/* Result details */
+.res-breakdown {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.res-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #333;
+}
+
+/* Small hex icon using clip-path */
+.res-icon {
+  width: 18px;
+  height: 18px;
+  background: var(--c, #999);
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%);
+  border: 1px solid rgba(0,0,0,0.35);
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.res-name {
+  min-width: 64px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.res-metrics {
+  color: #444;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card stat info tooltip */
+.card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-subrow {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: #444;
+}
+
+.stat-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-info-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.75);
+  color: #111;
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.stat-tooltip {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  width: min(420px, 85vw);
+  background: rgba(17,17,17,0.92);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  display: none;
+  z-index: 30;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.stat-info:hover .stat-tooltip,
+.stat-info:focus-within .stat-tooltip {
+  display: block;
+}
+
+/* Responsive SVG sizing */
+#board {
+  width: min(820px, 92vw);
+  height: auto;
+  max-width: 100%;
+}
+
+/* Mobile layout */
+@media (max-width: 640px) {
+  .page {
+    padding: 18px 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+    text-align: center;
+  }
+
+  .board-wrap {
+    padding: 10px;
+    max-width: 96vw;
+  }
+
+  #board {
+    width: 96vw;     /* fill screen nicely */
+    height: auto;
+  }
+
+  /* Results panel should not be narrower than its contents */
+  #results {
+    width: 96vw;
+    padding: 12px;
+  }
+
+  /* One-column cards on mobile */
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Prevent mini-map from spilling outside the card */
+  .result-card {
+    overflow: hidden;
+  }
+
+  .result-map {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Allow stat row to wrap */
+  .card-subrow {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
