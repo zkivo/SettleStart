@@ -11,7 +11,7 @@
     <h1>An opening-placement analysis tool for Catan-like board games</h1>
 
     <p class="hint">
-    Left-click a hex/token to change terrain/number. Right-click to go backwards.
+    Click a tile/token to change terrain/number.
     </p>
 
 
@@ -41,7 +41,11 @@
       <div class="tooltip" id="pips-tooltip" role="tooltip">
         <div class="tooltip-title">What are pips?</div>
         <div class="tooltip-body">
-          Pips are the number of dice combinations to make a resource number.
+        Pips are the dots under the tokens. 
+        Each dot represents a unique combination of dice used to make up that token number. 
+        Therefore, the more dots (pips), the more valuable the resource is. <br> 
+        Between the tiles, at the vertices of the resources, the sum of the adjacent pips are reported. 
+        These sum express the strength of a settlement placed at that point.
         </div>
       </div>
     </div>

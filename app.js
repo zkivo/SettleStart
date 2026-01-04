@@ -57,6 +57,23 @@ function pipCount(n) {
   }
 }
 
+function computeBoardPipTotals() {
+  const order = ["wood", "brick", "sheep", "wheat", "ore"];
+  const totals = {};
+  for (const r of order) totals[r] = 0;
+
+  for (const h of hexes) {
+    const r = resourceOfTerrain(h.terrain);
+    if (!r) continue;
+    if (!h.number) continue;
+    totals[r] += pipCount(h.number);
+  }
+
+  totals._all = order.reduce((s, r) => s + totals[r], 0);
+  return totals;
+}
+
+
 
 function isRedNumber(n) {
   return n === 6 || n === 8;
@@ -325,125 +342,142 @@ function vertexInfo(vKey) {
   return { hexIdxSet };
 }
 
+function getNumberSet(hexIdxSet) {
+  const s = new Set();
+  for (const idx of hexIdxSet) {
+    const n = hexes[idx].number;
+    if (n != null) s.add(n);
+  }
+  return s;
+}
+
+
 function pairScore(a, b, vInfo) {
   const A = vInfo.get(a);
   const B = vInfo.get(b);
 
-  // Union of adjacent hex tokens (no double counting of the same hex)
-  const unionHex = new Set([...A.hexIdxSet, ...B.hexIdxSet]);
+  // Count ALL contributions from both settlements (shared hex counted twice),
+  // but only when a resource + number exists.
+  let totalPips = 0;
 
-  // Count dice numbers in the union (to compute unique pips and repeated numbers)
-  const numCountsUnion = new Map();
-  for (const idx of unionHex) {
-    const n = hexes[idx].number;
-    if (n == null) continue;
-    numCountsUnion.set(n, (numCountsUnion.get(n) || 0) + 1);
-  }
-
-  // 1) Primary objective: maximize pips WITHOUT repeated numbers
-  //    (count each dice number at most once)
-  let uniquePips = 0;
-  let repeatNumbersInUnion = 0;
-  for (const [n, c] of numCountsUnion.entries()) {
-    uniquePips += pipCount(n);
-    if (c > 1) repeatNumbersInUnion += (c - 1);
-  }
-
-  // 2) Secondary objective: prefer having all resources, with weights
+  const counts = { ore: 0, wheat: 0, wood: 0, brick: 0, sheep: 0 };
   const resourcesPresent = new Set();
-  let weightedExpected = 0; // sum of dice probability * resource weight over UNION hexes
-  for (const idx of unionHex) {
+
+  const addHex = (idx) => {
     const h = hexes[idx];
     const r = resourceOfTerrain(h.terrain);
-    if (!r) continue;
+    if (!r) return;
+    if (!h.number) return;
+
     resourcesPresent.add(r);
-    if (!h.number) continue;
-    weightedExpected += (DICE_P[h.number] ?? 0) * resourceWeight(r);
+
+    const p = pipCount(h.number);
+    totalPips += p;
+
+    counts[r] = (counts[r] || 0) + 1; // count tiles (with numbers) by resource
+  };
+
+  for (const idx of A.hexIdxSet) addHex(idx);
+  for (const idx of B.hexIdxSet) addHex(idx);
+
+  const numResources = resourcesPresent.size;
+
+  // Repeated tokens between the two intersections (multiset intersection by dice number)
+  const countNums = (hexIdxSet) => {
+    const c = new Map();
+    for (const idx of hexIdxSet) {
+      const n = hexes[idx].number;
+      if (n == null) continue;
+      c.set(n, (c.get(n) || 0) + 1);
+    }
+    return c;
+  };
+  const numsA = getNumberSet(A.hexIdxSet);
+  const numsB = getNumberSet(B.hexIdxSet);
+
+  let repeatedNumbers = 0;
+  for (const n of numsA) {
+    if (numsB.has(n)) repeatedNumbers++;
   }
 
 
-// Hard preference: avoid openings that touch fewer than 4 distinct resources
-// (3-resource or less starts are strongly penalized)
-let lowResourcePenalty = 0;
-if (resourcesPresent.size < 4) {
-  lowResourcePenalty = (4 - resourcesPresent.size) * 200_000_000;
-}
+  // ---- Scoring (multiplicative) ----
+  // Your idea, with a small repetition penalty:
+  // totalPips * numResources * 1.1^(#wheat + #ore) * 1.0^(#wood + #brick) * 0.9^(#sheep) * 0.95^(repeatedTokens)
+  let score =
+    Math.max(0, totalPips) *
+    Math.max(0, numResources) *
+    Math.pow(1.1, (counts.wheat || 0) + (counts.ore || 0)) *
+    Math.pow(1.0, (counts.wood || 0) + (counts.brick || 0)) *
+    Math.pow(0.9, (counts.sheep || 0)) *
+    Math.pow(0.95, repeatedNumbers);
 
-  // Weighted coverage bonus: reward touching more resource TYPES, by their weights
-  let weightedCoverage = 0;
-  for (const r of resourcesPresent) weightedCoverage += resourceWeight(r);
-
-  // Composite score with strict priority:
-  // uniquePips dominates; then weighted coverage/expected; then repetition penalty
-  const score =
-    uniquePips * 1_000_000 +
-    weightedCoverage * 10_000 +
-    weightedExpected * 10_000 -
-    repeatNumbersInUnion * 1_000;
+  // // Strong penalty for < 4 resources (keep your constraint)
+  // if (numResources < 4) score *= 0.0001; // pushes these to the bottom
 
   return {
     score,
-    unionSize: resourcesPresent.size,       // for "Resources covered"
-    uniquePips,
-    weightedCoverage,
-    weightedExpected,
-    repeatNumbersInUnion,
+    unionSize: numResources, // used as "Resources covered"
   };
 }
+
 function computePairDetails(a, b, vInfo) {
   const A = vInfo.get(a);
   const B = vInfo.get(b);
 
   // Repeated tokens = repeated NUMBER TOKENS between the two settlement intersections.
-// We count how many dice numbers appear in BOTH intersections (multiset intersection via min counts).
-const countNums = (hexIdxSet) => {
-  const counts = new Map();
-  for (const idx of hexIdxSet) {
-    const n = hexes[idx].number;
-    if (n == null) continue;
-    counts.set(n, (counts.get(n) || 0) + 1);
+  // We count how many dice numbers appear in BOTH intersections (multiset intersection via min counts).
+  const countNums = (hexIdxSet) => {
+    const counts = new Map();
+    for (const idx of hexIdxSet) {
+      const n = hexes[idx].number;
+      if (n == null) continue;
+      counts.set(n, (counts.get(n) || 0) + 1);
+    }
+    return counts;
+  };
+
+  const numsA = getNumberSet(A.hexIdxSet);
+  const numsB = getNumberSet(B.hexIdxSet);
+
+  const repeatedList = [];
+  for (const n of numsA) {
+    if (numsB.has(n)) repeatedList.push(String(n));
   }
-  return counts;
-};
 
-const countsA = countNums(A.hexIdxSet);
-const countsB = countNums(B.hexIdxSet);
+  const repeatedNumbers = repeatedList.length;
 
-let repeatedTokens = 0;
-const repeatedList = [];
-for (const [n, ca] of countsA.entries()) {
-  const cb = countsB.get(n) || 0;
-  const rep = Math.min(ca, cb);
-  if (rep > 0) {
-    repeatedTokens += rep;
-    repeatedList.push(String(n));
-  }
-}
 
-      const unionHex = new Set([...A.hexIdxSet, ...B.hexIdxSet]);
 
-  // Total pips across unique adjacent hexes (no double-counting /*shared_removed*/ tokens)
+  const unionHex = new Set([...A.hexIdxSet, ...B.hexIdxSet]);
+
+  // Count ALL contributions from both settlements.
+  // If a hex touches BOTH intersections, we count it twice (because both settlements would produce from it).
   let totalPips = 0;
-  for (const idx of unionHex) totalPips += pipCount(hexes[idx].number);
 
-  // Per-resource probability and pips across unique adjacent hexes
   const order = ["wood", "brick", "sheep", "wheat", "ore"];
   const perRes = {};
   for (const r of order) perRes[r] = { prob: 0, pips: 0 };
 
-  for (const idx of unionHex) {
+  const addHex = (idx) => {
     const h = hexes[idx];
     const r = resourceOfTerrain(h.terrain);
-    if (!r) continue;
-    if (!h.number) continue;
+    if (!r) return;
+    if (!h.number) return;
+
+    const pips = pipCount(h.number);
+    totalPips += pips;
 
     perRes[r].prob += (DICE_P[h.number] ?? 0);
-    perRes[r].pips += pipCount(h.number);
-  }
+    perRes[r].pips += pips;
+  };
+
+  for (const idx of A.hexIdxSet) addHex(idx);
+  for (const idx of B.hexIdxSet) addHex(idx);
 
   return {
-    repeatedTokens,
-        repeatedList,
+    repeatedNumbers,
+    repeatedList,
     totalPips,
     perRes,
     unionHexCount: unionHex.size,
@@ -523,24 +557,24 @@ function drawDiceButton(targetSvg) {
 
   // Click = randomize with confirmation
   g.addEventListener("click", (e) => {
-  e.stopPropagation();
+    e.stopPropagation();
 
-  // Only warn if the user has already edited the board
-  if (!isDefaultBoard()) {
+    // Only warn if the user has already edited the board
+    if (!isDefaultBoard()) {
       const ok = window.confirm(
-      "This action will erase the current board. Proceed?"
-);
+        "This action will erase the current board. Proceed?"
+      );
       if (!ok) return;
-  }
+    }
 
-  const success = generateRandomStandardMap();
-  if (!success) {
+    const success = generateRandomStandardMap();
+    if (!success) {
       alert("Failed to generate a valid map. Try again.");
       return;
-  }
+    }
 
-  resultsDiv.innerHTML = "";
-  draw(svg, null);
+    resultsDiv.innerHTML = "";
+    draw(svg, null);
   });
 
   targetSvg.appendChild(g);
@@ -597,15 +631,15 @@ function draw(targetSvg, highlights /* {aKey,bKey} or null */, interactive = (ta
     if (interactive) {
       // Left-click: forward terrain
       poly.addEventListener("click", () => {
-          hexes[i].terrain = cycleForward(TERRAIN, hexes[i].terrain);
-          draw(svg, null, true);
+        hexes[i].terrain = cycleForward(TERRAIN, hexes[i].terrain);
+        draw(svg, null, true);
       });
 
       // Right-click: backward terrain
       poly.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          hexes[i].terrain = cycleBackward(TERRAIN, hexes[i].terrain);
-          draw(svg, null, true);
+        e.preventDefault();
+        hexes[i].terrain = cycleBackward(TERRAIN, hexes[i].terrain);
+        draw(svg, null, true);
       });
     }
 
@@ -622,16 +656,16 @@ function draw(targetSvg, highlights /* {aKey,bKey} or null */, interactive = (ta
 
     if (interactive) {
       circle.addEventListener("click", (e) => {
-          e.stopPropagation();
-          hexes[i].number = cycleForward(NUMBER_CYCLE, hexes[i].number);
-          draw(svg, null, true);
+        e.stopPropagation();
+        hexes[i].number = cycleForward(NUMBER_CYCLE, hexes[i].number);
+        draw(svg, null, true);
       });
 
       circle.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          hexes[i].number = cycleBackward(NUMBER_CYCLE, hexes[i].number);
-          draw(svg, null, true);
+        e.preventDefault();
+        e.stopPropagation();
+        hexes[i].number = cycleBackward(NUMBER_CYCLE, hexes[i].number);
+        draw(svg, null, true);
       });
     }
 
@@ -673,12 +707,12 @@ function draw(targetSvg, highlights /* {aKey,bKey} or null */, interactive = (ta
     targetSvg.appendChild(g);
   });
 
-    // Vertex pip sums (intersection totals) - main board only
+  // Vertex pip sums (intersection totals) - main board only
   if (interactive && targetSvg === svg && showPips) {
     drawVertexPipSums(targetSvg);
   }
 
-// settlement highlights (for mini-maps)
+  // settlement highlights (for mini-maps)
   if (highlights?.aKey) {
     const p = vertexPos.get(highlights.aKey);
     if (p) settlementMarker(targetSvg, p.x, p.y, "1");
@@ -738,7 +772,7 @@ function renderMiniMap(aKey, bKey) {
 
   // Big preview, but responsive in the card
   // Responsive sizing is handled by CSS (.result-map)
-mini.classList.add("result-map");
+  mini.classList.add("result-map");
 
   // Same sea background
   mini.style.background = getComputedStyle(svg).backgroundColor || "#cfefff";
@@ -760,6 +794,8 @@ document.getElementById("calculate").addEventListener("click", () => {
     vInfo.set(vKey, vertexInfo(vKey));
   }
 
+  const boardTotals = computeBoardPipTotals();
+
   const vertices = [...vInfo.keys()];
 
   // pairs obeying distance rule: not adjacent vertices
@@ -778,12 +814,55 @@ document.getElementById("calculate").addEventListener("click", () => {
   }
 
   pairs.sort((x, y) => y.score - x.score);
-  const top = pairs.slice(0, 28);
+  const top = pairs.slice(0, 18);
 
   resultsDiv.innerHTML = "";
-  const title = document.createElement("h2");
-  title.textContent = "Suggested openings";
-  resultsDiv.appendChild(title);
+
+  const intro = document.createElement("div");
+  intro.innerHTML = `
+    <div class="results-intro">
+      <h2>Suggested openings</h2>
+
+      <p>
+        Below are the <b>suggested openings</b>. They are ranked using a score computed with the following formula:
+      </p>
+
+      <div class="formula">
+        <span class="formula-var">score</span>
+        =
+        <span class="formula-var">totalPips</span>
+        ×
+        <span class="formula-var">numResources</span>
+        ×
+        1.1<sup>(#wheat + #ore)</sup>
+        ×
+        1.0<sup>(#wood + #brick)</sup>
+        ×
+        0.9<sup>(#sheep)</sup>
+        ×
+        0.95<sup>(repeatedNumbers)</sup>
+      </div>
+
+      <p>
+        This score prioritizes openings with a high <b>total number of pips</b> and a larger
+        <b>number of distinct resources covered</b>, while assigning more weight to wheat and ore,
+        followed by wood and brick, and lastly sheep.
+        Additionally, repeated dice numbers across the two settlements are lightly penalized to reduce production variance.
+      </p>
+
+      <p>
+        The above formula was designed after reading the following strategy guides and discussions.
+      </p>
+
+      <p>
+        Please note that there are many different strategies that can be applied in this game. Moreover, this analysis does not consider
+        other players, alternative board sizes, or additional tile types. As a result, capturing the full complexity of opening placements
+        in a single formula is inherently challenging. These suggested openings should therefore be taken as <b>mere inspiration rather than absolute truth</b>.
+      </p>
+    </div>
+  `;
+  resultsDiv.appendChild(intro);
+
 
   const grid = document.createElement("div");
   grid.className = "results-grid";
@@ -794,105 +873,112 @@ document.getElementById("calculate").addEventListener("click", () => {
     card.className = "result-card";
 
     const header = document.createElement("div");
-header.className = "card-top";
-header.innerHTML = `<div style="font-weight:800">#${idx + 1}</div>`;
-card.appendChild(header);
+    header.className = "card-top";
+    header.innerHTML = `<div style="font-weight:800">#${idx + 1}</div>`;
+    card.appendChild(header);
 
-const meta = document.createElement("div");
-meta.className = "card-subrow";
+    const meta = document.createElement("div");
+    meta.className = "card-subrow";
 
-const details = computePairDetails(r.a, r.b, vInfo);
+    const details = computePairDetails(r.a, r.b, vInfo);
 
-const left = document.createElement("div");
-left.innerHTML = `Resources covered: <b>${r.unionSize}</b> · Repeated tokens: <b>${details.repeatedTokens}</b> · Total pips: <b>${details.totalPips}</b>`;
+    const left = document.createElement("div");
+    left.innerHTML = `Resources covered: <b>${r.unionSize}</b> · Repeated Numbers: <b>${details.repeatedNumbers}</b> · Total pips: <b>${details.totalPips}</b>`;
 
-const info = document.createElement("div");
-info.className = "stat-info";
-info.innerHTML = `
-  <button type="button" class="stat-info-btn" aria-label="About these stats">i</button>
-  <div class="stat-tooltip">
-        <b>Ranking</b> prioritizes maximizing unique pips (counting each dice number once), then prefers weighted resource coverage (ore=wheat > brick=wood > wool), penalizes repeated numbers, and strongly penalizes touching fewer than 4 resources.<br>        <b>Resources covered</b> is how many different resources you touch.<br>        <b>Repeated tokens</b> counts how many dice numbers appear in both intersections (using the minimum occurrences).<br>        <b>Total pips</b> and the per‑resource percentages are computed on the union of adjacent tokens (no double counting).
+    const info = document.createElement("div");
+    info.className = "stat-info";
+    info.innerHTML = `
+      <button type="button" class="stat-info-btn" aria-label="About these stats">i</button>
+      <div class="stat-tooltip">
+        <b>Resources covered</b> is the number of different type of resources touched by the two settlements.<br>
+        <b>Repeated numbers</b> counts how many repeated token numbers appear in both settlements.<br>
+        <b>Total pips</b> is the sum of all the pips from both the settlements.<br>
+        <b>Coverage</b> shows how much the settlements cover of each type of resource.
       </div>
-`;
+    `;
 
-meta.appendChild(left);
-meta.appendChild(info);
-card.appendChild(meta);
+
+    meta.appendChild(left);
+    meta.appendChild(info);
+    card.appendChild(meta);
 
     const mini = renderMiniMap(r.a, r.b);
     mini.style.marginTop = "10px";
     card.appendChild(mini);
 
 
-const breakdown = document.createElement("div");
-breakdown.className = "res-breakdown";
+    const breakdown = document.createElement("div");
+    breakdown.className = "res-breakdown";
 
-const pretty = {
-  wood: { name: "wood", color: "#2e7d32" },
-  brick: { name: "brick", color: "#c62828" },
-  sheep: { name: "sheep", color: "#7cb342" },
-  wheat: { name: "wheat", color: "#f9a825" },
-  ore: { name: "ore", color: "#546e7a" },
-};
+    const pretty = {
+      wood: { name: "wood", color: "#2e7d32" },
+      brick: { name: "brick", color: "#c62828" },
+      sheep: { name: "sheep", color: "#7cb342" },
+      wheat: { name: "wheat", color: "#f9a825" },
+      ore: { name: "ore", color: "#546e7a" },
+    };
 
-// Build resource rows sorted by descending probability (union of tokens; /*shared_removed*/ tokens not double-counted)
-const keys = ["wood", "brick", "sheep", "wheat", "ore"]
-  .map((k) => ({ k, prob: details.perRes[k]?.prob ?? 0, pips: details.perRes[k]?.pips ?? 0 }))
-  .filter((x) => x.prob > 0 || x.pips > 0)
-  .sort((a, b) => b.prob - a.prob);
+    // Build resource rows sorted by descending COVERAGE:
+    // coverage(resource) = opening_pips(resource) / board_total_pips(resource)
+    const keys = ["wood", "brick", "sheep", "wheat", "ore"]
+      .map((k) => {
+        const openP = details.perRes[k]?.pips ?? 0;
+        const totP = boardTotals[k] ?? 0;
+        const cov = totP > 0 ? openP / totP : 0;
+        return { k, openP, totP, cov };
+      })
+      .filter((x) => x.openP > 0 && x.totP > 0)
+      .sort((a, b) => b.cov - a.cov);
 
-for (const item of keys) {
-  const key = item.k;
-  const d = details.perRes[key];
+    for (const item of keys) {
+      const key = item.k;
 
-  const row = document.createElement("div");
-  row.className = "res-row";
+      const row = document.createElement("div");
+      row.className = "res-row";
 
-  const icon = document.createElement("span");
-  icon.className = "res-icon";
-  icon.style.setProperty("--c", pretty[key].color);
+      const icon = document.createElement("span");
+      icon.className = "res-icon";
+      icon.style.setProperty("--c", pretty[key].color);
 
-  const name = document.createElement("span");
-  name.className = "res-name";
-  name.textContent = pretty[key].name;
+      const name = document.createElement("span");
+      name.className = "res-name";
+      name.textContent = pretty[key].name;
 
-  const metrics = document.createElement("span");
-  metrics.className = "res-metrics";
-  metrics.textContent = `${(d.prob * 100).toFixed(1)}% (${d.pips} pips)`;
+      const metrics = document.createElement("span");
+      metrics.className = "res-metrics";
+      const pct = (item.cov * 100);
+      metrics.textContent = `${item.openP} / ${item.totP} (${pct.toFixed(1)}%)`;
 
-  row.appendChild(icon);
-  row.appendChild(name);
-  row.appendChild(metrics);
-  breakdown.appendChild(row);
-}
+      row.appendChild(icon);
+      row.appendChild(name);
+      row.appendChild(metrics);
+      breakdown.appendChild(row);
+    }
 
+    // Total coverage across all resources (opening total pips / board total pips)
+    const totalRow = document.createElement("div");
+    totalRow.className = "res-row";
+    totalRow.style.marginTop = "6px";
+    totalRow.style.paddingTop = "6px";
+    totalRow.style.borderTop = "1px solid rgba(0,0,0,0.10)";
 
-// Total row (sum across union of tokens)
-const totalRow = document.createElement("div");
-totalRow.className = "res-row";
-totalRow.style.marginTop = "6px";
-totalRow.style.paddingTop = "6px";
-totalRow.style.borderTop = "1px solid rgba(0,0,0,0.10)";
+    const totalIcon = document.createElement("span");
+    totalIcon.className = "res-icon";
+    totalIcon.style.setProperty("--c", "rgba(17,17,17,0.35)");
 
-const totalIcon = document.createElement("span");
-totalIcon.className = "res-icon";
-totalIcon.style.setProperty("--c", "rgba(17,17,17,0.35)");
+    const totalName = document.createElement("span");
+    totalName.className = "res-name";
+    totalName.textContent = "total";
 
-const totalName = document.createElement("span");
-totalName.className = "res-name";
-totalName.textContent = "total";
+    const totalMetrics = document.createElement("span");
+    totalMetrics.className = "res-metrics";
+    const totalCov = (boardTotals && boardTotals._all > 0) ? (details.totalPips / boardTotals._all) : 0;
+    totalMetrics.textContent = `${details.totalPips} / ${boardTotals._all} (${(totalCov * 100).toFixed(1)}%)`;
 
-// Sum probabilities and pips from union (already stored in details.perRes / details.totalPips)
-const totalProb = Object.values(details.perRes).reduce((a, b) => a + (b.prob || 0), 0);
-
-const totalMetrics = document.createElement("span");
-totalMetrics.className = "res-metrics";
-totalMetrics.textContent = `${(totalProb * 100).toFixed(1)}% (${details.totalPips} pips)`;
-
-totalRow.appendChild(totalIcon);
-totalRow.appendChild(totalName);
-totalRow.appendChild(totalMetrics);
-breakdown.appendChild(totalRow);
+    totalRow.appendChild(totalIcon);
+    totalRow.appendChild(totalName);
+    totalRow.appendChild(totalMetrics);
+    breakdown.appendChild(totalRow);
 
     if (breakdown.childNodes.length > 0) card.appendChild(breakdown);
 

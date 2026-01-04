@@ -172,6 +172,7 @@ button#reset {
   margin-top: 10px;
 }
 
+
 /* Bigger result cards */
 .result-card {
   background: rgba(255,255,255,0.75);
@@ -189,6 +190,34 @@ button#reset {
   border: 1px solid rgba(0,0,0,0.12);
   border-radius: 16px;
 }
+
+/* Results intro text */
+.results-intro {
+  font-size: 14.5px;        /* slightly larger */
+  line-height: 1.55;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.results-intro h2 {
+  margin-bottom: 8px;
+}
+
+/* Math-style formula */
+.formula {
+  margin: 12px 0 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+
+  font-size: 16px;
+  font-weight: 400;   /* ← normal weight */
+  text-align: center;
+
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+}
+
 
 
 /* Pips toggle UI (placed to the right of Reset) */
