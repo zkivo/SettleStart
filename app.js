@@ -74,6 +74,61 @@ function computeBoardPipTotals() {
 }
 
 
+  // --- Picker UI (terrain/number selection) ---
+const pickerBackdrop = document.getElementById("picker-backdrop");
+const picker = document.getElementById("picker");
+const pickerTitle = document.getElementById("picker-title");
+const pickerGrid = document.getElementById("picker-grid");
+const pickerClose = document.getElementById("picker-close");
+
+let pickerOnSelect = null;
+
+function openPicker(title, items, onSelect) {
+  pickerTitle.textContent = title;
+  pickerGrid.innerHTML = "";
+  pickerOnSelect = onSelect;
+
+  for (const it of items) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-btn";
+
+    if (it.swatch) {
+      const sw = document.createElement("span");
+      sw.className = "picker-swatch";
+      sw.style.background = it.swatch;
+      btn.appendChild(sw);
+    }
+
+    const label = document.createElement("span");
+    label.textContent = it.label;
+    btn.appendChild(label);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pickerOnSelect) pickerOnSelect(it.value);
+      closePicker();
+    });
+
+    pickerGrid.appendChild(btn);
+  }
+
+  pickerBackdrop.style.display = "block";
+  picker.style.display = "block";
+}
+
+function closePicker() {
+  picker.style.display = "none";
+  pickerBackdrop.style.display = "none";
+  pickerOnSelect = null;
+}
+
+if (pickerBackdrop) pickerBackdrop.addEventListener("click", closePicker);
+if (pickerClose) pickerClose.addEventListener("click", closePicker);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closePicker();
+});
 
 function isRedNumber(n) {
   return n === 6 || n === 8;
@@ -629,17 +684,19 @@ function draw(targetSvg, highlights /* {aKey,bKey} or null */, interactive = (ta
     poly.classList.add("hex");
 
     if (interactive) {
-      // Left-click: forward terrain
-      poly.addEventListener("click", () => {
-        hexes[i].terrain = cycleForward(TERRAIN, hexes[i].terrain);
-        draw(svg, null, true);
-      });
+      poly.addEventListener("click", (e) => {
+        e.stopPropagation();
 
-      // Right-click: backward terrain
-      poly.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        hexes[i].terrain = cycleBackward(TERRAIN, hexes[i].terrain);
-        draw(svg, null, true);
+        const items = TERRAIN.map(t => ({
+          label: t,
+          value: t,
+          swatch: COLORS[t] ?? "#ddd",
+        }));
+
+        openPicker("Select resource", items, (val) => {
+          hexes[i].terrain = val;
+          draw(svg, null, true);
+        });
       });
     }
 
@@ -657,15 +714,17 @@ function draw(targetSvg, highlights /* {aKey,bKey} or null */, interactive = (ta
     if (interactive) {
       circle.addEventListener("click", (e) => {
         e.stopPropagation();
-        hexes[i].number = cycleForward(NUMBER_CYCLE, hexes[i].number);
-        draw(svg, null, true);
-      });
 
-      circle.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        hexes[i].number = cycleBackward(NUMBER_CYCLE, hexes[i].number);
-        draw(svg, null, true);
+        const items = NUMBER_CYCLE.map(n => ({
+          label: (n == null ? "none" : String(n)),
+          value: n,
+          swatch: null,
+        }));
+
+        openPicker("Select number", items, (val) => {
+          hexes[i].number = val;
+          draw(svg, null, true);
+        });
       });
     }
 
@@ -867,6 +926,8 @@ document.getElementById("calculate").addEventListener("click", () => {
   const grid = document.createElement("div");
   grid.className = "results-grid";
   resultsDiv.appendChild(grid);
+
+
 
   top.forEach((r, idx) => {
     const card = document.createElement("div");
