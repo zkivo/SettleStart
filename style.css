@@ -467,4 +467,51 @@ button#reset {
     flex-wrap: wrap;
     gap: 8px;
   }
+
+    .stat-tooltip {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+
+    width: min(520px, 92vw);
+    max-width: 92vw;
+    max-height: 70vh;
+    overflow: auto;
+
+    display: none;          /* shown via JS */
+    z-index: 9999;
+
+    padding: 14px 14px;
+    border-radius: 14px;
+  }
+
+  /* Darken background behind tooltip */
+  .stat-tooltip-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 9998;
+    display: none;          /* shown via JS */
+  }
+
+  /* Optional close button styling */
+  .stat-tooltip .close-x {
+    position: sticky;
+    top: 0;
+    float: right;
+    margin: -4px -4px 8px 8px;
+
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.10);
+    color: #fff;
+
+    font-weight: 900;
+    cursor: pointer;
+  }
+  
 }
