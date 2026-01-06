@@ -910,7 +910,7 @@ document.getElementById("calculate").addEventListener("click", () => {
       </p>
 
       <p>
-        The above formula was designed after reading the following strategy guides and discussions.
+        The above formula was designed after reading the following strategy guides and discussions: <a href="https://www.instructables.com/Catan-strategy-guide/">instructables</a>, <a href="https://medium.com/@noahmiller400/17-advanced-tactics-to-win-more-settlers-of-catan-2d9280b7fa4b">Noah Miller</a>, <a href="https://christopherberry.ca/what-to-expect-when-youre-expecting-to-play-catan/">Christopher Berry</a>, <a href="https://boardgamegeek.com/thread/1744303/counting-pips-for-resources">boardgamegeek</a>.
       </p>
 
       <p>
