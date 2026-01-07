@@ -74,7 +74,7 @@ function computeBoardPipTotals() {
 }
 
 
-  // --- Picker UI (terrain/number selection) ---
+// --- Picker UI (terrain/number selection) ---
 const pickerBackdrop = document.getElementById("picker-backdrop");
 const picker = document.getElementById("picker");
 const pickerTitle = document.getElementById("picker-title");
